@@ -8,6 +8,7 @@
 @License :   Apache License 2.0 
 """
 
+import os
 import requests
 
 
@@ -21,10 +22,12 @@ class Client(object):
         self.driver_id = driver_id
         self.session = requests.session()
 
-    def get_token(self):
+        self.file_tree = {}
+
+    def _get_token(self):
         return self.token
 
-    def check_token(self):
+    def _check_token(self):
         api_url = "https://api.aliyundrive.com/v2/user/get"
         headers = {"authorization": self.token}
         response = self.session.post(api_url, headers=headers, json={})
@@ -33,16 +36,16 @@ class Client(object):
         else:
             return False
 
-    def update_info(self, info: dict):
+    def _update_info(self, info: dict):
         self.info = info
-        print(self.info)
+        # print(self.info)
         self.user_id = info["user_id"]
         self.nick_name = info["nick_name"]
         self.avatar = info["avatar"]
         self.phone = info["phone"]
         self.driver_id = info["default_drive_id"]
 
-    def get_user_info(self):
+    def _get_user_info(self):
         if not self.check_token():
             raise Exception("token is invalid")
 
@@ -50,20 +53,20 @@ class Client(object):
         headers = {"Authorization": self.token}
         response = self.session.post(api_url, headers=headers, json={})
 
-        self.update_info(response.json())
+        self._update_info(response.json())
         return self.info
 
     def login(self):
         if self.token:
-            if not self.check_token():
+            if not self._check_token():
                 raise Exception("token is invalid")
         else:
-            self.get_qrcode()
+            self._get_qrcode()
 
-    def get_qrcode(self):
+    def _get_qrcode(self):
         pass
 
-    def refresh_token(self):
+    def _refresh_token(self):
         api_url = "https://api.aliyundrive.com/token/refresh"
 
         headers = {"refresh_token": self.refresh_token}
@@ -71,12 +74,33 @@ class Client(object):
 
         if response.status_code == 200:
             resp_data = response.json()
-            self.update_info(resp_data)
+            self._update_info(resp_data)
             return True
         else:
             return False
 
-    def get_file_list(self, parent_file_id: str = 'root'):
+    def _get_file(self, file_id: str, drive_id: str = ''):
+        if not self.check_token():
+            raise Exception("token is invalid")
+
+        api_url = "https://api.aliyundrive.com/v2/file/get"
+        headers = {"authorization": self.token}
+        response = self.session.post(api_url,
+                                     headers=headers,
+                                     json={
+                                         "driver_id": self.driver_id,
+                                         "file_id": file_id
+                                     })
+
+        return response.json()
+
+    def _get_file_id(file_path: str = '/'):
+        pass
+
+    def _update_file_tree(self, parent_path: str, file_list: list):
+        pass
+
+    def _get_file_list(self, parent_file_id: str = 'root'):
         if not self.check_token():
             raise Exception("token is invalid")
 
@@ -104,22 +128,11 @@ class Client(object):
         else:
             return None
 
-    def get_file(self, file_id: str, drive_id: str = ''):
-        if not self.check_token():
-            raise Exception("token is invalid")
+    def get_file_list(self, parent_file_path: str = '/'):
+        parent_file_id = self._get_file_id(parent_file_path)
+        json = self._get_file_list(parent_file_id)
 
-        api_url = "https://api.aliyundrive.com/v2/file/get"
-        headers = {"authorization": self.token}
-        response = self.session.post(api_url,
-                                     headers=headers,
-                                     json={
-                                         "driver_id": self.driver_id,
-                                         "file_id": file_id
-                                     })
-
-        return response.json()
-
-    def get_download_url(self, file_id: str, drive_id: str = ''):
+    def _get_download_url(self, file_id: str, drive_id: str = ''):
         pass
 
     def __str__(self) -> str:
