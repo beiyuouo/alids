@@ -9,6 +9,7 @@
 """
 
 import os
+from textwrap import fill
 import tkinter as tk
 from tkinter import ttk
 
@@ -70,13 +71,24 @@ class App(ttk.Frame):
             (19, 25, "Child", ("Subitem 4.3", "Value 4.3")),
         ]
 
-        # Panedwindow
-        self.paned = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
-        self.paned.grid(row=0, column=0, padx=(5, 5), sticky="nsew")
+        self.pane_user = ttk.Frame(self, padding=5)
+        self.pane_user.grid(row=0, column=0, sticky="nsew", columnspan=3)
+
+        # avator
+        self.avator = ttk.Label(self.pane_user, text="User Avator")
+        self.avator.grid(row=0, column=0, sticky="nsew")
+
+        # user info
+        self.user_info = ttk.Label(self.pane_user, text="User Info")
+        self.user_info.grid(row=0, column=1, sticky="nsew")
 
         # Pane #1
-        self.pane_local = ttk.Frame(self.paned, padding=5)
-        self.paned.add(self.pane_local, weight=2)
+        self.pane_local = ttk.Frame(self, padding=5)
+        self.pane_local.grid(row=1, column=0, sticky="nsew")
+
+        # path
+        self.path_local = ttk.Label(self.pane_local, text="Path")
+        self.path_local.pack(side=tk.TOP)
 
         # Scrollbar
         self.scrollbar_local = ttk.Scrollbar(self.pane_local)
@@ -105,20 +117,26 @@ class App(ttk.Frame):
         self.treeview_local.see(7)
 
         # Pane #2
-        self.pane_options = ttk.Frame(self.paned, padding=5)
-        self.paned.add(self.pane_options, weight=1)
-
-        # Label
-        self.label_options = ttk.Label(self.pane_options, text="Options")
-        self.label_options.pack(side="top", fill="y")
+        self.pane_opt = ttk.Frame(self, padding=5)
+        self.pane_opt.grid(row=1, column=1, sticky="ne", pady=5)
 
         # Button
-        self.button_options = ttk.Button(self.pane_options, text="Options")
-        self.button_options.pack(side="top", fill="y")
+        self.button_push = ttk.Button(self.pane_opt, text="push")
+        self.button_push.grid(row=0, column=0, pady=10, sticky="nsew")
+
+        self.button_sync = ttk.Checkbutton(self.pane_opt, text="sync", style="Toggle.TButton")
+        self.button_sync.grid(row=1, column=0, pady=10, sticky="nsew")
+
+        self.button_pull = ttk.Button(self.pane_opt, text="pull")
+        self.button_pull.grid(row=2, column=0, pady=10, sticky="nsew")
 
         # Pane #3
-        self.pane_cloud = ttk.Frame(self.paned, padding=5)
-        self.paned.add(self.pane_cloud, weight=2)
+        self.pane_cloud = ttk.Frame(self, padding=5)
+        self.pane_cloud.grid(row=1, column=2, sticky="nsew")
+
+        # path
+        self.path_cloud = ttk.Label(self.pane_cloud, text="Path")
+        self.path_cloud.pack(side=tk.TOP)
 
         # Scrollbar
         self.scrollbar_cloud = ttk.Scrollbar(self.pane_cloud)
@@ -145,6 +163,15 @@ class App(ttk.Frame):
         # Select and scroll
         self.treeview_cloud.selection_set(10)
         self.treeview_cloud.see(7)
+
+        # log pane
+        # self.pane_log = ttk.Frame(self, padding=5)
+        # self.pane_log.grid(row=2, column=0, columnspan=3, sticky="nsew")
+
+        # log
+        self.log = ttk.Entry(self, state="readonly")
+        self.log.grid(row=2, column=0, sticky="nsew", columnspan=3, padx=5, pady=5)
+        self.log.insert(tk.END, "Log\n")
 
         # Sizegrip
         # self.sizegrip = ttk.Sizegrip(self)
