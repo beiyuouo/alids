@@ -17,10 +17,10 @@ class Client(object):
     def __init__(self,
                  access_token: str = None,
                  refresh_token: str = None,
-                 driver_id: str = None):
+                 drive_id: str = None):
         self.token = access_token
         self.refresh_token = refresh_token
-        self.driver_id = driver_id
+        self.drive_id = drive_id
         self.session = requests.session()
 
         self.token_checked = False
@@ -50,7 +50,7 @@ class Client(object):
         self.nick_name = info["nick_name"]
         self.avatar = info["avatar"]
         self.phone = info["phone"]
-        self.driver_id = info["default_drive_id"]
+        self.drive_id = info["default_drive_id"]
 
     def _get_user_info(self):
         api_url = "https://api.aliyundrive.com/v2/user/get"
@@ -113,7 +113,7 @@ class Client(object):
         response = self.session.post(api_url,
                                      headers=headers,
                                      json={
-                                         "driver_id": self.driver_id,
+                                         "drive_id": self.drive_id,
                                          "file_id": file_id
                                      })
 
@@ -135,8 +135,8 @@ class Client(object):
 
         for file_item in file_list:
             _file_tree[file_item['name']] = file_item
-            self.filepath2id[os.path.join(parent_path,
-                                          file_item['name'])] = file_item['file_id']
+            self.filepath2id[os.path.normpath(os.path.join(
+                parent_path, file_item['name']))] = file_item['file_id']
 
     def _get_file_id_by_path(self, file_path: str):
         """
@@ -147,7 +147,60 @@ class Client(object):
         if file_path == '/':
             return 'root'
         else:
+            # format file path
+            file_path = os.path.normpath(file_path)
             return self.filepath2id[file_path]
+
+    def _get_file_download_url(self, file_id: str):
+        """ get file download url
+
+        Args:
+            file_id (str): [description]
+        """
+        if not self._check_token():
+            raise Exception("token is invalid")
+
+        # print(file_id, self.drive_id)
+
+        api_url = "https://api.aliyundrive.com/v2/file/get_download_url"
+        headers = {"authorization": self.token}
+        response = self.session.post(api_url,
+                                     headers=headers,
+                                     json={
+                                         "drive_id": self.drive_id,
+                                         "file_id": file_id
+                                     })
+
+        return response.json()
+
+    def get_file_download_url(self, file_path: str):
+        """ get file download url
+
+        Args:
+            file_id (str): [description]
+        """
+        file_id = self._get_file_id_by_path(file_path)
+        json = self._get_file_download_url(file_id)
+        # print(json)
+        if json.get("steams_url"):
+            return json["steams_url"]["jpeg"]
+        else:
+            return json["url"]
+
+    def download_file(self, file_path: str, save_path: str):
+        """ download file
+
+        Args:
+            file_path (str): [description]
+            save_path (str): [description]
+        """
+        url = self.get_file_download_url(file_path)
+        response = self.session.get(url, headers={"Referer": "https://www.aliyundrive.com/"})
+        if response.status_code == 200:
+            with open(save_path, "wb") as f:
+                f.write(response.content)
+        else:
+            raise Exception("download file failed")
 
     def _get_file_id(self, file_path: str = '/'):
         """[summary]
@@ -196,7 +249,7 @@ class Client(object):
             "Authorization": self.token,
         }
         payload = {
-            "drive_id": self.driver_id,
+            "drive_id": self.drive_id,
             "parent_file_id": parent_file_id,
             "limit": 100,
             "all": False,
@@ -240,7 +293,7 @@ class Client(object):
             self.str += f"nick_name: {self.nick_name}, "
             self.str += f"avatar: {self.avatar}, "
             self.str += f"phone: {self.phone}, "
-            self.str += f"driver_id: {self.driver_id}"
+            self.str += f"drive_id: {self.drive_id}"
 
         self.str += ">"
         return self.str
