@@ -26,6 +26,7 @@ class Client(object):
         self.token_checked = False
 
         self.file_tree = {}
+        self.filepath2id = {}
 
     def _get_token(self):
         return self.token
@@ -103,8 +104,8 @@ class Client(object):
         else:
             return False
 
-    def _get_file(self, file_id: str, drive_id: str = ''):
-        if not self.check_token():
+    def _get_file(self, file_id: str):
+        if not self._check_token():
             raise Exception("token is invalid")
 
         api_url = "https://api.aliyundrive.com/v2/file/get"
@@ -118,16 +119,75 @@ class Client(object):
 
         return response.json()
 
-    def _get_file_id(self, file_path: str = '/'):
+    def _update_filetree(self, parent_path: str, file_list: list):
+        """ update file tree
+
+        Args:
+            parent_path (str): [description]
+            file_list (list): [description]
+        """
+        path_list = os.path.split(parent_path)
+        _file_tree = self.file_tree
+        for path_item in path_list:
+            if path_item not in _file_tree:
+                _file_tree[path_item] = {}
+            _file_tree = _file_tree[path_item]
+
+        for file_item in file_list:
+            _file_tree[file_item['name']] = file_item
+            self.filepath2id[os.path.join(parent_path,
+                                          file_item['name'])] = file_item['file_id']
+
+    def _get_file_id_by_path(self, file_path: str):
+        """
+        get file id by file path
+        if you want to get file id of root, you should use '/'
+        if you want to use this method, you should get file list first
+        """
         if file_path == '/':
             return 'root'
         else:
-            pass
+            return self.filepath2id[file_path]
 
-    def _update_file_tree(self, parent_path: str, file_list: list):
-        pass
+    def _get_file_id(self, file_path: str = '/'):
+        """[summary]
+
+        Args:
+            file_path (str, optional): [description]. Defaults to '/'.
+
+        Returns:
+            [type]: [description]
+        """
+        if file_path == '/':
+            return 'root'
+        else:
+            # split path
+            _path_list = os.path.split(file_path)
+
+            # get file id step by step
+            _path = '/'
+            _fileid = 'root'
+            for path_item in _path_list:
+                _path = os.path.join(_path, path_item)
+                _fileid = self._get_file_id_by_path(_path)
+                # print(_path, _fileid)
+                _filetree = self._get_file_list(_fileid)['items']
+                self._update_filetree(_path, _filetree)
+
+            return _fileid
 
     def _get_file_list(self, parent_file_id: str = 'root'):
+        """ get file list by parent file id using aliyun api
+
+        Args:
+            parent_file_id (str, optional): [description]. Defaults to 'root'.
+
+        Raises:
+            Exception: [description]
+
+        Returns:
+            [type]: [description]
+        """
         if not self._check_token():
             raise Exception("token is invalid")
 
@@ -156,6 +216,14 @@ class Client(object):
             return None
 
     def get_file_list(self, parent_file_path: str = '/'):
+        """ extenal method to get file list
+
+        Args:
+            parent_file_path (str, optional): [description]. Defaults to '/'.
+
+        Returns:
+            [type]: [description]
+        """
         parent_file_id = self._get_file_id(parent_file_path)
         json = self._get_file_list(parent_file_id)
 
