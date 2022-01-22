@@ -8,6 +8,7 @@
 @License :   Apache License 2.0 
 """
 
+from distutils import filelist
 import os
 import requests
 
@@ -22,16 +23,21 @@ class Client(object):
         self.driver_id = driver_id
         self.session = requests.session()
 
+        self.token_checked = False
+
         self.file_tree = {}
 
     def _get_token(self):
         return self.token
 
     def _check_token(self):
+        if self.token_checked:
+            return True
         api_url = "https://api.aliyundrive.com/v2/user/get"
         headers = {"authorization": self.token}
         response = self.session.post(api_url, headers=headers, json={})
         if response.status_code == 200:
+            self.token_checked = True
             return True
         else:
             return False
@@ -46,9 +52,6 @@ class Client(object):
         self.driver_id = info["default_drive_id"]
 
     def _get_user_info(self):
-        if not self.check_token():
-            raise Exception("token is invalid")
-
         api_url = "https://api.aliyundrive.com/v2/user/get"
         headers = {"Authorization": self.token}
         response = self.session.post(api_url, headers=headers, json={})
@@ -56,10 +59,31 @@ class Client(object):
         self._update_info(response.json())
         return self.info
 
+    def get_user_avatar(self):
+        if hasattr(self, "avatar"):
+            return self.avatar
+        return None
+
+    def get_user_nickname(self):
+        if hasattr(self, "nick_name"):
+            return self.nick_name
+        return None
+
+    def get_user_id(self):
+        if hasattr(self, "user_id"):
+            return self.user_id
+        return None
+
+    def get_user_phone(self):
+        if hasattr(self, "phone"):
+            return self.phone
+        return None
+
     def login(self):
         if self.token:
             if not self._check_token():
                 raise Exception("token is invalid")
+            self._get_user_info()
         else:
             self._get_qrcode()
 
@@ -94,14 +118,17 @@ class Client(object):
 
         return response.json()
 
-    def _get_file_id(file_path: str = '/'):
-        pass
+    def _get_file_id(self, file_path: str = '/'):
+        if file_path == '/':
+            return 'root'
+        else:
+            pass
 
     def _update_file_tree(self, parent_path: str, file_list: list):
         pass
 
     def _get_file_list(self, parent_file_id: str = 'root'):
-        if not self.check_token():
+        if not self._check_token():
             raise Exception("token is invalid")
 
         api_url = "https://api.aliyundrive.com/adrive/v3/file/list"
@@ -110,7 +137,7 @@ class Client(object):
         }
         payload = {
             "drive_id": self.driver_id,
-            "parent_file_id": "root",
+            "parent_file_id": parent_file_id,
             "limit": 100,
             "all": False,
             "url_expire_sec": 1600,
@@ -131,6 +158,8 @@ class Client(object):
     def get_file_list(self, parent_file_path: str = '/'):
         parent_file_id = self._get_file_id(parent_file_path)
         json = self._get_file_list(parent_file_id)
+
+        return json['items']
 
     def _get_download_url(self, file_id: str, drive_id: str = ''):
         pass

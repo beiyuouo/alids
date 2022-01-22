@@ -9,14 +9,22 @@
 """
 
 import os
-from textwrap import fill
+from pydoc import cli
 import tkinter as tk
 from tkinter import ttk
+from urllib.request import urlopen
+
+from alids import util
+from alids.core import Client
 
 
 class App(ttk.Frame):
     def __init__(self, parent):
         ttk.Frame.__init__(self)
+
+        token = os.environ.get("ALIDS_TOKEN")
+        self.cli = Client(access_token=token)
+        self.cli.login()
 
         # Make the app responsive
         for index in [0, 1, 2]:
@@ -26,9 +34,25 @@ class App(ttk.Frame):
         # Create value lists
 
         # Create control variables
+        self.var_user_avatar = util.get_tkimage(url=self.cli.get_user_avatar())
+        self.var_user_nickname = tk.StringVar()
+        self.var_user_phone = tk.StringVar()
+
+        self.var_user_nickname.set(self.cli.get_user_nickname())
+        self.var_user_phone.set(self.cli.get_user_phone())
+
+        self.var_treeview_local_path = tk.StringVar()
+        self.var_treeview_local_path.set(os.path.dirname(__file__))
+        self.var_treeview_cloud_path = tk.StringVar()
+        self.var_treeview_cloud_path.set("/")
+
+        self.var_log = tk.StringVar()
 
         # Create widgets :)
         self.setup_widgets()
+
+    def log(self, msg):
+        self.var_log.set(msg)
 
     def _insert_treeview_data(self, treeview_data, treeview):
         # Insert treeview data
@@ -41,54 +65,51 @@ class App(ttk.Frame):
             if item[0] == "" or item[1] in {8, 21}:
                 treeview.item(item[1], open=True)  # Open parents
 
+    def _on_path_local_return(self, event):
+        self.var_treeview_local_path.set(event.widget.get())
+        # clear treeview
+        self.treeview_local.delete(*self.treeview_local.get_children())
+
+        treeview_data = util.treeview_dir(self.var_treeview_local_path.get())
+
+        self._insert_treeview_data(treeview_data=treeview_data, treeview=self.treeview_local)
+
+    def _on_path_cloud_return(self, event):
+        self.var_treeview_cloud_path.set(event.widget.get())
+        self.treeview_cloud.delete(*self.treeview_cloud.get_children())
+        items = self.cli.get_file_list(self.var_treeview_cloud_path.get())
+        treeview_data = util.treeview_alidir(self.var_treeview_cloud_path.get(), items)
+        self._insert_treeview_data(treeview_data=treeview_data, treeview=self.treeview_cloud)
+
     def setup_widgets(self):
         # Define treeview data
         treeview_data = [
             ("", 1, "Parent", ("Item 1", "Value 1")),
-            (1, 2, "Child", ("Subitem 1.1", "Value 1.1")),
-            (1, 3, "Child", ("Subitem 1.2", "Value 1.2")),
-            (1, 4, "Child", ("Subitem 1.3", "Value 1.3")),
-            (1, 5, "Child", ("Subitem 1.4", "Value 1.4")),
-            ("", 6, "Parent", ("Item 2", "Value 2")),
-            (6, 7, "Child", ("Subitem 2.1", "Value 2.1")),
-            (6, 8, "Sub-parent", ("Subitem 2.2", "Value 2.2")),
-            (8, 9, "Child", ("Subitem 2.2.1", "Value 2.2.1")),
-            (8, 10, "Child", ("Subitem 2.2.2", "Value 2.2.2")),
-            (8, 11, "Child", ("Subitem 2.2.3", "Value 2.2.3")),
-            (6, 12, "Child", ("Subitem 2.3", "Value 2.3")),
-            (6, 13, "Child", ("Subitem 2.4", "Value 2.4")),
-            ("", 14, "Parent", ("Item 3", "Value 3")),
-            (14, 15, "Child", ("Subitem 3.1", "Value 3.1")),
-            (14, 16, "Child", ("Subitem 3.2", "Value 3.2")),
-            (14, 17, "Child", ("Subitem 3.3", "Value 3.3")),
-            (14, 18, "Child", ("Subitem 3.4", "Value 3.4")),
-            ("", 19, "Parent", ("Item 4", "Value 4")),
-            (19, 20, "Child", ("Subitem 4.1", "Value 4.1")),
-            (19, 21, "Sub-parent", ("Subitem 4.2", "Value 4.2")),
-            (21, 22, "Child", ("Subitem 4.2.1", "Value 4.2.1")),
-            (21, 23, "Child", ("Subitem 4.2.2", "Value 4.2.2")),
-            (21, 24, "Child", ("Subitem 4.2.3", "Value 4.2.3")),
-            (19, 25, "Child", ("Subitem 4.3", "Value 4.3")),
         ]
 
         self.pane_user = ttk.Frame(self, padding=5)
         self.pane_user.grid(row=0, column=0, sticky="nsew", columnspan=3)
 
         # avator
-        self.avator = ttk.Label(self.pane_user, text="User Avator")
-        self.avator.grid(row=0, column=0, sticky="nsew")
+        self.avatar = ttk.Label(self.pane_user, image=self.var_user_avatar)
+        self.avatar.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
-        # user info
-        self.user_info = ttk.Label(self.pane_user, text="User Info")
-        self.user_info.grid(row=0, column=1, sticky="nsew")
+        # user nickname
+        self.nickname = ttk.Label(self.pane_user, textvariable=self.var_user_nickname)
+        self.nickname.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+
+        # user phone
+        self.phone = ttk.Label(self.pane_user, textvariable=self.var_user_phone)
+        self.phone.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
 
         # Pane #1
         self.pane_local = ttk.Frame(self, padding=5)
         self.pane_local.grid(row=1, column=0, sticky="nsew")
 
         # path
-        self.path_local = ttk.Label(self.pane_local, text="Path")
-        self.path_local.pack(side=tk.TOP)
+        self.path_local = ttk.Entry(self.pane_local, textvariable=self.var_treeview_local_path)
+        self.path_local.pack(side=tk.TOP, fill=tk.X, expand=True, padx=5, pady=5)
+        self.path_local.bind("<Return>", self._on_path_local_return)
 
         # Scrollbar
         self.scrollbar_local = ttk.Scrollbar(self.pane_local)
@@ -106,15 +127,18 @@ class App(ttk.Frame):
         self.scrollbar_local.config(command=self.treeview_local.yview)
 
         # Treeview columns
-        self.treeview_local.column("#0", anchor="w", width=120)
-        self.treeview_local.column(1, anchor="w", width=120)
-        self.treeview_local.column(2, anchor="w", width=120)
+        self.treeview_local.heading("#0", text="Path")
+        self.treeview_local.column("#0", anchor="w", width=180)
+        self.treeview_local.heading(1, text="Size")
+        self.treeview_local.column(1, anchor="w", width=80)
+        self.treeview_local.heading(2, text="Edit Time")
+        self.treeview_local.column(2, anchor="w", width=80)
 
         self._insert_treeview_data(treeview_data=treeview_data, treeview=self.treeview_local)
 
         # Select and scroll
-        self.treeview_local.selection_set(10)
-        self.treeview_local.see(7)
+        # self.treeview_local.selection_set(10)
+        # self.treeview_local.see(7)
 
         # Pane #2
         self.pane_opt = ttk.Frame(self, padding=5)
@@ -135,8 +159,9 @@ class App(ttk.Frame):
         self.pane_cloud.grid(row=1, column=2, sticky="nsew")
 
         # path
-        self.path_cloud = ttk.Label(self.pane_cloud, text="Path")
-        self.path_cloud.pack(side=tk.TOP)
+        self.path_cloud = ttk.Entry(self.pane_cloud, textvariable=self.var_treeview_cloud_path)
+        self.path_cloud.pack(side=tk.TOP, fill=tk.X, expand=True, padx=5, pady=5)
+        self.path_cloud.bind("<Return>", self._on_path_cloud_return)
 
         # Scrollbar
         self.scrollbar_cloud = ttk.Scrollbar(self.pane_cloud)
@@ -154,46 +179,28 @@ class App(ttk.Frame):
         self.scrollbar_cloud.config(command=self.treeview_cloud.yview)
 
         # Treeview columns
-        self.treeview_cloud.column("#0", anchor="w", width=120)
-        self.treeview_cloud.column(1, anchor="w", width=120)
-        self.treeview_cloud.column(2, anchor="w", width=120)
+        self.treeview_cloud.heading("#0", text="Path")
+        self.treeview_cloud.column("#0", anchor="w", width=180)
+        self.treeview_cloud.heading(1, text="Size")
+        self.treeview_cloud.column(1, anchor="w", width=80)
+        self.treeview_cloud.heading(2, text="Edit Time")
+        self.treeview_cloud.column(2, anchor="w", width=80)
 
         self._insert_treeview_data(treeview_data=treeview_data, treeview=self.treeview_cloud)
 
         # Select and scroll
-        self.treeview_cloud.selection_set(10)
-        self.treeview_cloud.see(7)
+        # self.treeview_cloud.selection_set(10)
+        # self.treeview_cloud.see(7)
 
         # log pane
         # self.pane_log = ttk.Frame(self, padding=5)
         # self.pane_log.grid(row=2, column=0, columnspan=3, sticky="nsew")
 
         # log
-        self.log = ttk.Entry(self, state="readonly")
-        self.log.grid(row=2, column=0, sticky="nsew", columnspan=3, padx=5, pady=5)
-        self.log.insert(tk.END, "Log\n")
+        self.log_entry = ttk.Entry(self, state="readonly", textvariable=self.var_log)
+        self.log_entry.grid(row=2, column=0, sticky="nsew", columnspan=3, padx=5, pady=5)
+        self.log("start!")
 
         # Sizegrip
         # self.sizegrip = ttk.Sizegrip(self)
         # self.sizegrip.grid(row=100, column=100, padx=(0, 5), pady=(0, 5))
-
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    root.title("Simple example")
-
-    # Simply set the theme
-    root.tk.call("source", os.path.join('.', 'alids', 'ui', 'sun_valley', 'sun-valley.tcl'))
-    root.tk.call("set_theme", "dark")
-
-    app = App(root)
-    app.pack(fill="both", expand=True)
-
-    # Set a minsize for the window, and place it in the middle
-    root.update()
-    root.minsize(root.winfo_width(), root.winfo_height())
-    x_cordinate = int((root.winfo_screenwidth() / 2) - (root.winfo_width() / 2))
-    y_cordinate = int((root.winfo_screenheight() / 2) - (root.winfo_height() / 2))
-    root.geometry("+{}+{}".format(x_cordinate, y_cordinate))
-
-    root.mainloop()
